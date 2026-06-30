@@ -21,6 +21,7 @@ from langchain_quickjs import CodeInterpreterMiddleware
 from config import Settings, configure_logging, get_settings
 from mcp.connect import MCPToolLoader
 from prompts import SUPERVISOR_PROMPT, WORKER_PROMPT
+from langchain.chat_models import init_chat_model
 
 logger = logging.getLogger(__name__)
 
@@ -44,9 +45,13 @@ def build_agent(settings: Settings, tools: Sequence[BaseTool]) -> Any:
         "tools": list(tools),
     }
     logger.info("Registering worker subagent with %s shared MCP tools.", len(tools))
+    llm = init_chat_model(
+        model=settings.model,
+        model_provider="openrouter",
+    )
 
     return create_deep_agent(
-        model=settings.model,
+        model=llm,
         tools=list(tools),
         system_prompt=SUPERVISOR_PROMPT,
         middleware=[CodeInterpreterMiddleware()],
@@ -125,8 +130,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     configure_logging()
     try:
         settings = get_settings()
-        user_request = _parse_user_request(sys.argv[1:] if argv is None else argv)
+        # user_request = _parse_user_request(sys.argv[1:] if argv is None else argv)
+        user_request= "run security assessment  scan on axiomio.com"
+        print("started")
         final_text = asyncio.run(run_agent(user_request, settings))
+        print("finished")
     except KeyboardInterrupt:
         logger.warning("Interrupted.")
         return 130
