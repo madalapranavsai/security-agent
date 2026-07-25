@@ -81,28 +81,16 @@ class MCPToolLoader:
                 server_name=self.server_name,
             )
 
-            print("\n" + "=" * 80)
-            print("MCP TOOLS DISCOVERED")
-            print("=" * 80)
-            print(f"Total Tools: {len(all_tools)}\n")
-
-            for i, tool in enumerate(all_tools, start=1):
-                print(f"{i}. {tool.name}")
-
-                description = getattr(tool, "description", "")
-                if description:
-                    print(f"   Description: {description}")
-
-                print()
-
-            print("=" * 80 + "\n")
-
             filtered_tools = list(all_tools[: self.max_tools])
 
             logger.info(
                 "Registering %d/%d tools.",
                 len(filtered_tools),
                 len(all_tools),
+            )
+            logger.debug(
+                "Available MCP tools: %s",
+                ", ".join(tool.name for tool in all_tools),
             )
 
         except Exception as e:

@@ -16,12 +16,12 @@ from deepagents import (
     register_harness_profile,
 )
 from langchain_core.tools import BaseTool
+from langchain.chat_models import init_chat_model
 from langchain_quickjs import CodeInterpreterMiddleware
 
 from config import Settings, configure_logging, get_settings
 from mcp.connect import MCPToolLoader
 from prompts import SUPERVISOR_PROMPT, WORKER_PROMPT
-from langchain.chat_models import init_chat_model
 
 logger = logging.getLogger(__name__)
 
@@ -130,11 +130,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     configure_logging()
     try:
         settings = get_settings()
-        # user_request = _parse_user_request(sys.argv[1:] if argv is None else argv)
-        user_request= "run security assessment  scan on axiomio.com"
-        print("started")
+        user_request = _parse_user_request(sys.argv[1:] if argv is None else argv)
+        logger.info("Starting agent workflow.")
         final_text = asyncio.run(run_agent(user_request, settings))
-        print("finished")
     except KeyboardInterrupt:
         logger.warning("Interrupted.")
         return 130
