@@ -28,14 +28,14 @@ def _parse_mcp_args(raw_args: str) -> list[str]:
     return shlex.split(stripped)
 
 
-def _parse_positive_int(raw_value: str | None, *, default: int) -> int:
+def _parse_positive_int(raw_value: str | None, *, default: int, name: str) -> int:
     """Parse a positive integer environment variable with a default."""
     if raw_value is None or not raw_value.strip():
         return default
 
     value = int(raw_value)
     if value <= 0:
-        raise ValueError("MAX_TOOLS must be greater than zero.")
+        raise ValueError(f"{name} must be greater than zero.")
     return value
 
 
@@ -43,7 +43,12 @@ MODEL: str = os.getenv("MODEL", "anthropic:claude-sonnet-4-6")
 MCP_SERVER_NAME: str = os.getenv("MCP_SERVER_NAME", "default")
 MCP_COMMAND: str = os.getenv("MCP_COMMAND", "")
 MCP_ARGS: list[str] = _parse_mcp_args(os.getenv("MCP_ARGS", ""))
-MAX_TOOLS: int = _parse_positive_int(os.getenv("MAX_TOOLS"), default=50)
+MAX_TOOLS: int = _parse_positive_int(os.getenv("MAX_TOOLS"), default=50, name="MAX_TOOLS")
+SUBAGENT_COUNT: int = _parse_positive_int(
+    os.getenv("SUBAGENT_COUNT"),
+    default=10,
+    name="SUBAGENT_COUNT",
+)
 LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO").upper()
 
 
@@ -56,6 +61,7 @@ class Settings:
     mcp_command: str
     mcp_args: list[str]
     max_tools: int
+    subagent_count: int
     log_level: str
 
 
@@ -70,6 +76,7 @@ def get_settings() -> Settings:
         mcp_command=MCP_COMMAND,
         mcp_args=MCP_ARGS,
         max_tools=MAX_TOOLS,
+        subagent_count=SUBAGENT_COUNT,
         log_level=LOG_LEVEL,
     )
 

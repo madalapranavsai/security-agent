@@ -47,7 +47,7 @@ def _install_import_stubs() -> None:
     sys.modules["mcp.connect"] = mcp_connect
 
     prompts = types.ModuleType("prompts")
-    prompts.SUPERVISOR_PROMPT = "supervisor"
+    prompts.build_supervisor_prompt = lambda worker_names: f"supervisor:{','.join(worker_names)}"
     prompts.WORKER_PROMPT = "worker"
     sys.modules["prompts"] = prompts
 
@@ -57,6 +57,14 @@ main = importlib.import_module("main")
 
 
 class MainCliTests(unittest.TestCase):
+    def test_build_worker_subagents_creates_configured_pool(self) -> None:
+        workers = main.build_worker_subagents(10, ["tool"])
+
+        self.assertEqual(len(workers), 10)
+        self.assertEqual(workers[0]["name"], "worker_01")
+        self.assertEqual(workers[-1]["name"], "worker_10")
+        self.assertTrue(all(worker["tools"] == ["tool"] for worker in workers))
+
     def test_parse_user_request_from_args(self) -> None:
         self.assertEqual(
             main._parse_user_request(["run", "security", "assessment"]),

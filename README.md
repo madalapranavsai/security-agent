@@ -3,7 +3,7 @@
 Security Agent is a small CLI orchestrator for running DeepAgents workflows over
 tools exposed by an MCP server. It takes a natural-language request, loads a
 bounded set of MCP tools over stdio, creates a supervisor agent plus one worker
-subagent, and returns the final assistant response to stdout.
+subagent pool, and returns the final assistant response to stdout.
 
 The project is intentionally thin: this repository owns the orchestration,
 configuration, prompts, and MCP connection layer. The actual security tooling is
@@ -16,8 +16,9 @@ provided by whichever MCP server you configure at runtime.
 - Connects to one MCP server using `langchain-mcp-adapters`.
 - Limits the number of tools registered with the agent using `MAX_TOOLS`.
 - Builds a DeepAgents supervisor with QuickJS workflow execution.
-- Registers one generic worker subagent that can choose among the shared MCP
-  tools.
+- Registers a configurable pool of generic worker subagents, defaulting to 10,
+  that can choose among the shared MCP tools and run independent tasks
+  concurrently.
 - Prints only the final response to stdout, keeping operational details in
   logs.
 
@@ -76,6 +77,7 @@ MCP_ARGS='["/absolute/path/to/your_mcp_server.py", "--server", "http://localhost
 
 # Runtime behavior.
 MAX_TOOLS=50
+SUBAGENT_COUNT=10
 LOG_LEVEL=INFO
 ```
 
@@ -110,9 +112,10 @@ The CLI exits with:
 3. `MCPToolLoader` starts a stdio MCP session and loads LangChain-compatible
    tools.
 4. `build_agent()` creates the supervisor DeepAgent and disables the default
-   DeepAgents subagent profile so only the configured worker is available.
+   DeepAgents subagent profile so only the configured worker pool is available.
 5. The supervisor can use QuickJS to create dynamic workflows, delegate focused
-   tasks to the worker, and reconcile the final answer.
+   tasks across the worker pool with `Promise.all`, and reconcile the final
+   answer.
 
 ## Testing
 
@@ -144,6 +147,8 @@ requirements clear before connecting powerful MCP tools to the agent.
 - `MCP_ARGS JSON must be a list of strings`: use a valid JSON array or switch to
   shell-style arguments.
 - `MAX_TOOLS must be greater than zero`: set `MAX_TOOLS` to a positive integer.
+- `SUBAGENT_COUNT must be greater than zero`: set `SUBAGENT_COUNT` to a
+  positive integer.
 - Missing import errors: install dependencies with `pip install -r
   requirements.txt` or `uv sync`.
 - No MCP tools are available: verify the MCP server command works by itself, then

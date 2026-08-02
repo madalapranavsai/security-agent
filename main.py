@@ -21,30 +21,49 @@ from langchain_quickjs import CodeInterpreterMiddleware
 
 from config import Settings, configure_logging, get_settings
 from mcp.connect import MCPToolLoader
-from prompts import SUPERVISOR_PROMPT, WORKER_PROMPT
+from prompts import WORKER_PROMPT, build_supervisor_prompt
 
 logger = logging.getLogger(__name__)
 
 
 def _disable_default_subagent(model: str) -> None:
-    """Ensure DeepAgents registers only the configured worker subagent."""
+    """Ensure DeepAgents registers only the configured worker subagents."""
     register_harness_profile(
         model,
         HarnessProfile(general_purpose_subagent=GeneralPurposeSubagentProfile(enabled=False)),
     )
 
 
+def _worker_name(index: int) -> str:
+    """Return a stable worker subagent name for prompts and registration."""
+    return f"worker_{index:02d}"
+
+
+def build_worker_subagents(count: int, tools: Sequence[BaseTool]) -> list[SubAgent]:
+    """Create a pool of identical worker subagents that can run concurrently."""
+    shared_tools = list(tools)
+    return [
+        {
+            "name": _worker_name(index),
+            "description": f"Generic task execution agent {index}.",
+            "system_prompt": WORKER_PROMPT,
+            "tools": shared_tools,
+        }
+        for index in range(1, count + 1)
+    ]
+
+
 def build_agent(settings: Settings, tools: Sequence[BaseTool]) -> Any:
-    """Create the DeepAgent with QuickJS workflow execution and one worker."""
+    """Create the DeepAgent with QuickJS workflow execution and worker pool."""
     _disable_default_subagent(settings.model)
 
-    worker: SubAgent = {
-        "name": "worker",
-        "description": "Generic task execution agent.",
-        "system_prompt": WORKER_PROMPT,
-        "tools": list(tools),
-    }
-    logger.info("Registering worker subagent with %s shared MCP tools.", len(tools))
+    workers = build_worker_subagents(settings.subagent_count, tools)
+    worker_names = [str(worker["name"]) for worker in workers]
+    logger.info(
+        "Registering %s worker subagents with %s shared MCP tools.",
+        len(workers),
+        len(tools),
+    )
     llm = init_chat_model(
         model=settings.model,
         model_provider="openrouter",
@@ -53,9 +72,9 @@ def build_agent(settings: Settings, tools: Sequence[BaseTool]) -> Any:
     return create_deep_agent(
         model=llm,
         tools=list(tools),
-        system_prompt=SUPERVISOR_PROMPT,
+        system_prompt=build_supervisor_prompt(worker_names),
         middleware=[CodeInterpreterMiddleware()],
-        subagents=[worker],
+        subagents=workers,
         name="dynamic-deepagents-mcp-orchestrator",
     )
 
