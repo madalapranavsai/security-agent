@@ -10,7 +10,11 @@ from dataclasses import dataclass
 
 from dotenv import load_dotenv
 
-load_dotenv()
+DEFAULT_MODEL = "anthropic:claude-sonnet-4-6"
+DEFAULT_MCP_SERVER_NAME = "default"
+DEFAULT_MAX_TOOLS = 50
+DEFAULT_SUBAGENT_COUNT = 10
+DEFAULT_LOG_LEVEL = "INFO"
 
 
 def _parse_mcp_args(raw_args: str) -> list[str]:
@@ -39,19 +43,6 @@ def _parse_positive_int(raw_value: str | None, *, default: int, name: str) -> in
     return value
 
 
-MODEL: str = os.getenv("MODEL", "anthropic:claude-sonnet-4-6")
-MCP_SERVER_NAME: str = os.getenv("MCP_SERVER_NAME", "default")
-MCP_COMMAND: str = os.getenv("MCP_COMMAND", "")
-MCP_ARGS: list[str] = _parse_mcp_args(os.getenv("MCP_ARGS", ""))
-MAX_TOOLS: int = _parse_positive_int(os.getenv("MAX_TOOLS"), default=50, name="MAX_TOOLS")
-SUBAGENT_COUNT: int = _parse_positive_int(
-    os.getenv("SUBAGENT_COUNT"),
-    default=10,
-    name="SUBAGENT_COUNT",
-)
-LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO").upper()
-
-
 @dataclass(frozen=True, slots=True)
 class Settings:
     """Validated application settings loaded from the process environment."""
@@ -67,22 +58,37 @@ class Settings:
 
 def get_settings() -> Settings:
     """Return validated runtime settings."""
-    if not MCP_COMMAND:
+    load_dotenv()
+
+    mcp_command = os.getenv("MCP_COMMAND", "")
+    if not mcp_command:
         raise RuntimeError("MCP_COMMAND is required. Set it in the environment or .env file.")
 
     return Settings(
-        model=MODEL,
-        mcp_server_name=MCP_SERVER_NAME,
-        mcp_command=MCP_COMMAND,
-        mcp_args=MCP_ARGS,
-        max_tools=MAX_TOOLS,
-        subagent_count=SUBAGENT_COUNT,
-        log_level=LOG_LEVEL,
+        model=os.getenv("MODEL", DEFAULT_MODEL),
+        mcp_server_name=os.getenv("MCP_SERVER_NAME", DEFAULT_MCP_SERVER_NAME),
+        mcp_command=mcp_command,
+        mcp_args=_parse_mcp_args(os.getenv("MCP_ARGS", "")),
+        max_tools=_parse_positive_int(
+            os.getenv("MAX_TOOLS"),
+            default=DEFAULT_MAX_TOOLS,
+            name="MAX_TOOLS",
+        ),
+        subagent_count=_parse_positive_int(
+            os.getenv("SUBAGENT_COUNT"),
+            default=DEFAULT_SUBAGENT_COUNT,
+            name="SUBAGENT_COUNT",
+        ),
+        log_level=os.getenv("LOG_LEVEL", DEFAULT_LOG_LEVEL).upper(),
     )
 
 
-def configure_logging(level: str = LOG_LEVEL) -> None:
+def configure_logging(level: str | None = None) -> None:
     """Configure process logging once for CLI execution."""
+    if level is None:
+        load_dotenv()
+        level = os.getenv("LOG_LEVEL", DEFAULT_LOG_LEVEL).upper()
+
     logging.basicConfig(
         level=getattr(logging, level, logging.INFO),
         format="%(asctime)s %(levelname)s %(name)s - %(message)s",

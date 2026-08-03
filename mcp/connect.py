@@ -18,8 +18,6 @@ except ImportError as exc:
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-logging.basicConfig(level=logging.INFO)
-
 logger = logging.getLogger(__name__)
 
 
@@ -93,10 +91,10 @@ class MCPToolLoader:
                 ", ".join(tool.name for tool in all_tools),
             )
 
-        except Exception as e:
+        except Exception:
             await exit_stack.aclose()
             logger.exception("Failed to connect to MCP server.")
-            raise e
+            raise
 
         self._client = client
         self._tools = filtered_tools
